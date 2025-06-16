@@ -20,3 +20,12 @@ exports.isAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: "Admin access required" });
   next();
 };
+
+exports.isAdminOrEmployee = (req, res, next) => {
+  console.log('isAdminOrEmployee middleware: req.user:', req.user);
+  console.log('isAdminOrEmployee middleware: req.user.role:', req.user?.role);
+  if (req.user?.role !== 'admin' && req.user?.role !== 'employee') {
+    return res.status(403).json({ error: "Access denied. Admin or Employee access required" });
+  }
+  next();
+};

@@ -25,12 +25,26 @@ app.get("/", (req, res) => {
   res.send("API Running");
 });
 
+// TEMPORARY TEST ROUTE FOR DEBUGGING
+app.get("/test-route", (req, res) => {
+  console.log("Test route hit!");
+  res.send("Test route is working!");
+});
+
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
 const employeeRoutes = require('./routes/employeeRoutes');
 app.use('/api/employees', employeeRoutes);
 
+const projectRoutes = require('./routes/projectRoutes');
+app.use('/api/projects', projectRoutes);
+
+const taskRoutes = require('./routes/taskRoutes');
+app.use('/api/tasks', taskRoutes);
+
+const personalTaskRoutes = require('./routes/personalTaskRoutes');
+app.use('/api/personal-tasks', personalTaskRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
