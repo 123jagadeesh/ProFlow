@@ -1,77 +1,106 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import SignUp from './components/SignUp'
-import SignIn from './components/SignIn'
-import AdminDashboard from './components/AdminDashboard'
-import EmployeeDashboard from './components/EmployeeDashboard'
-import ForgotPassword from './components/ForgotPassword'
-import ResetPassword from './components/ResetPassword'
-import AddEmployee from './components/AddEmployee'
-import CreateProject from './components/CreateProject'
-import ProjectList from './components/ProjectList'
-import ProjectDetail from './components/ProjectDetail'
-import Todo from './components/Todo'
+import React from 'react';
+import 'react-toastify/dist/ReactToastify.css';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import AdminDashboard from './components/AdminDashboard';
+import EmployeeDashboard from './components/EmployeeDashboard';
+import LandingPage from './LandingPage';
+
+// Admin pages
+import AdminProjects from './pages/admin/Projects';
+import CreateProject from './pages/admin/CreateProject';
+import ProjectDetail from './pages/admin/ProjectDetail';
+import AdminTeams from './pages/admin/Teams';
+import ProjectBoard from './pages/admin/ProjectBoard';
+import ProjectBacklog from './pages/admin/ProjectBacklog';
+
+// Employee pages
+import EmployeeProjects from './pages/employee/EmployeeProjects';
+import EmployeeProjectDetail from './pages/employee/EmployeeProjectDetail';
+import EmployeeTeams from './pages/employee/EmployeeTeams';
+
+// Shared pages
+import Recent from './pages/shared/Recent';
+import Starred from './pages/shared/Starred';
+import VirtualRoom from './pages/shared/VirtualRoom';
+import Meet from './pages/shared/Meet';
+import Chat from './pages/shared/Chat';
+
+// Protected Route component for role-based access
+const ProtectedRoute = ({ children, requiredRole }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/" state={{ from: location }} replace />;
+  }
+
+  if (requiredRole && user.role !== requiredRole) {
+    return user.role === 'admin' 
+      ? <Navigate to="/admin-dashboard" replace /> 
+      : <Navigate to="/employee-dashboard" replace />;
+  }
+
+  return children;
+};
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={
-          <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-800">
-            <header className="text-center mb-12">
-              <h1 className="text-6xl font-extrabold text-blue-800 mb-4 tracking-tight">
-                ProFlow
-              </h1>
-              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                Your ultimate project management tool for seamless team collaboration and streamlined workflows.
-              </p>
-            </header>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          
+          {/* Admin Dashboard Routes */}
+          <Route path="/admin-dashboard" element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="recent" replace />} />
+            <Route path="recent" element={<Recent />} />
+            <Route path="starred" element={<Starred />} />
+            <Route path="virtual-room" element={<VirtualRoom />} />
+            <Route path="meet" element={<Meet />} />
+            <Route path="chat" element={<Chat />} />
+            <Route path="projects" element={<AdminProjects />} />
+            <Route path="projects/create" element={<CreateProject />} />
+            <Route path="projects/:id" element={<ProjectDetail />}>
+              <Route index element={<Navigate to="board" replace />} />
+              <Route path="board" element={<ProjectBoard />} />
+              <Route path="backlog" element={<ProjectBacklog />} />
+              <Route path="attachments" element={null} />
+            </Route>
+            <Route path="teams" element={<AdminTeams />} />
+          </Route>
 
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 max-w-4xl mx-auto px-4">
-              <div className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <h3 className="text-2xl font-bold text-blue-700 mb-2">Efficient Project Management</h3>
-                <p className="text-gray-700">Organize tasks, set deadlines, and track progress with intuitive tools designed for success.</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <h3 className="text-2xl font-bold text-blue-700 mb-2">Real-time Collaboration</h3>
-                <p className="text-gray-700">Communicate, share files, and collaborate seamlessly with your team in real-time.</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <h3 className="text-2xl font-bold text-blue-700 mb-2">Visualize & Track Progress</h3>
-                <p className="text-gray-700">Gain insights with powerful visualization tools and monitor project progress at a glance.</p>
-              </div>
-            </section>
+          {/* Employee Dashboard Routes */}
+          <Route path="/employee-dashboard" element={
+            <ProtectedRoute requiredRole="employee">
+              <EmployeeDashboard />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="recent" replace />} />
+            <Route path="recent" element={<Recent />} />
+            <Route path="starred" element={<Starred />} />
+            <Route path="virtual-room" element={<VirtualRoom />} />
+            <Route path="meet" element={<Meet />} />
+            <Route path="chat" element={<Chat />} />
+            <Route path="projects" element={<EmployeeProjects />} />
+            <Route path="projects/:projectId" element={<EmployeeProjectDetail />} />
+            <Route path="teams" element={<EmployeeTeams />} />
+          </Route>
 
-            <div className="flex space-x-6">
-              <Link to="/signup" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300">
-                Sign Up
-              </Link>
-              <Link to="/signin" className="bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300">
-                Sign In
-              </Link>
-            </div>
-          </div>
-        } />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/employee-dashboard" element={<EmployeeDashboard />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/add-employee" element={<AddEmployee />} />
-        <Route path="/create-project" element={<CreateProject />} />
-        <Route path="/projects" element={<ProjectList />} />
-        <Route path="/project/:id" element={<ProjectDetail />} />
-        <Route path="/todo" element={<Todo />} />
-      </Routes>
-    </Router>
-  )
+          {/* Fallback route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;
