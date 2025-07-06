@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config(); // <-- Load env variables
+const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -19,6 +20,9 @@ mongoose.connect(`${process.env.MONGO_URI}`
 mongoose.connection.once('open', () => {
   console.log(`✅ Connected to DB: ${mongoose.connection.name}`);
 });
+
+// Serve uploads directory for attachments
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Dummy route
 app.get("/", (req, res) => {
@@ -40,11 +44,12 @@ app.use('/api/employees', employeeRoutes);
 const projectRoutes = require('./routes/projectRoutes');
 app.use('/api/projects', projectRoutes);
 
+const sprintRoutes = require('./routes/sprintRoutes');
+app.use('/api/sprints', sprintRoutes);
+
 const taskRoutes = require('./routes/taskRoutes');
 app.use('/api/tasks', taskRoutes);
 
-const personalTaskRoutes = require('./routes/personalTaskRoutes');
-app.use('/api/personal-tasks', personalTaskRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

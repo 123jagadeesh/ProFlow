@@ -18,22 +18,39 @@ const transporter = nodemailer.createTransport({
 // @access  Public
 exports.adminSignUp = async (req, res) => {
   try {
-    const { companyName, email, password } = req.body;
+    const { companyName, companyLocation, adminName, email, password } = req.body;
 
-    // Check if company already exists (optional, based on your business logic)
+    // Input validation
+    if (!companyName || !companyLocation || !adminName || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Check if company already exists
     let company = await Company.findOne({ name: companyName });
     if (company) {
       return res.status(400).json({ message: "Company with this name already exists." });
     }
 
-    company = new Company({ name: companyName });
+    // Check if email is already registered
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email is already registered." });
+    }
+
+    // Create new company
+    company = new Company({
+      name: companyName,
+      location: companyLocation,
+      adminName,
+      adminEmail: email
+    });
     await company.save();
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    // Create admin user
     const admin = new User({
+      name: adminName,
       email,
-      password: hashedPassword,
+      password,
       role: 'admin',
       company: company._id,
     });
@@ -41,12 +58,52 @@ exports.adminSignUp = async (req, res) => {
     await admin.save();
 
     // Generate token for immediate login
-    const token = jwt.sign({ id: admin._id, role: admin.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(
+      { 
+        id: admin._id, 
+        role: admin.role,
+        company: company._id 
+      }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '24h' }
+    );
 
-    res.status(201).json({ message: "Company and admin registered successfully", token, user: { id: admin._id, email: admin.email, role: admin.role, company: company.name } });
+    res.status(201).json({ 
+      message: "Company and admin registered successfully", 
+      token, 
+      user: { 
+        id: admin._id, 
+        name: admin.name,
+        email: admin.email, 
+        role: admin.role, 
+        company: {
+          id: company._id,
+          name: company.name
+        }
+      } 
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server Error" });
+    console.error('Admin signup error:', err);
+    
+    // Handle duplicate key errors
+    if (err.code === 11000) {
+      return res.status(400).json({ 
+        message: "Email is already registered." 
+      });
+    }
+    
+    // Handle validation errors
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map(val => val.message);
+      return res.status(400).json({ 
+        message: 'Validation error',
+        errors: messages 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: "Server error during registration" 
+    });
   }
 };
 
@@ -56,19 +113,94 @@ exports.adminSignUp = async (req, res) => {
 exports.signIn = async (req, res) => {
   try {
     const { email, password } = req.body;
+    
+    console.log('Sign-in attempt for email:', email);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
 
+    if (!email || !password) {
+      console.log('Missing email or password');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and password are required' 
+      });
+    }
+
+    // Find user by email
     const user = await User.findOne({ email }).populate('company');
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    if (!user) {
+      console.log(`User not found with email: ${email}`);
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid email or password' 
+      });
+    }
+    
+    console.log('User found:', {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      company: user.company ? user.company._id : 'No company'
+    });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    // Check if password matches using the model's comparePassword method
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      console.log(`Invalid password for user: ${email}`);
+      console.log('Provided password length:', password ? password.length : 0);
+      console.log('Stored password hash:', user.password ? 'exists' : 'missing');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid email or password' 
+      });
+    }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Check if user is active
+    if (user.isActive === false) {
+      console.log(`Login attempt for deactivated user: ${email}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Account is deactivated. Please contact support.'
+      });
+    }
+    
+    console.log('User is active and credentials are valid');
 
-    res.json({ token, user: { _id: user._id, email: user.email, role: user.role, company: user.company ? user.company.name : null } });
+    // Update last login timestamp
+    user.lastLogin = Date.now();
+    await user.save();
+
+    const token = jwt.sign(
+      { 
+        id: user._id, 
+        role: user.role, 
+        company: user.company?._id 
+      }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '24h' }
+    );
+
+    // Prepare user response object
+    const userResponse = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      company: user.company ? {
+        id: user.company._id,
+        name: user.company.name
+      } : null
+    };
+
+    res.json({ 
+      token, 
+      user: userResponse 
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server Error" });
+    console.error('Sign in error:', err);
+    res.status(500).json({ 
+      message: err.message || 'Server error during authentication' 
+    });
   }
 };
 

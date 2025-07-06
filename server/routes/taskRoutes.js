@@ -3,7 +3,7 @@ const router = express.Router();
 
 console.log("taskRoutes.js is being loaded!"); // Debug log
 
-const { createTask, getTasks, getTaskById, updateTask, deleteTask } = require('../controllers/taskController');
+const { createTask, getTasks, getTaskById, updateTask, deleteTask, addComment, uploadMiddleware, uploadAttachment } = require('../controllers/taskController');
 const { protect, isAdminOrEmployee } = require('../middleware/authMiddleware');
 
 // Middleware to protect routes and ensure user belongs to the company
@@ -33,5 +33,11 @@ router.put('/:id', protect, isAdminOrEmployee, updateTask);
 // @route   DELETE /api/tasks/:id
 // @access  Private
 router.delete('/:id', protect, isAdminOrEmployee, deleteTask);
+
+// Add a comment to a task
+router.post('/:id/comments', protect, addComment);
+
+// Upload an attachment to a task
+router.post('/:id/attachments', protect, uploadMiddleware, uploadAttachment);
 
 module.exports = router; 

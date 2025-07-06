@@ -1,5 +1,17 @@
 const mongoose = require('mongoose');
 
+const AttachmentSchema = new mongoose.Schema({
+  filename: String,
+  url: String,
+  uploadedAt: { type: Date, default: Date.now },
+});
+
+const CommentSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  message: String,
+  createdAt: { type: Date, default: Date.now },
+});
+
 const TaskSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -20,12 +32,22 @@ const TaskSchema = new mongoose.Schema({
     ref: 'Task',
     default: null, // For sub-tasks
   },
-  assignee: [
+  sprint: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Sprint',
+    default: null,
+  },
+  assignee:[ 
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
   ],
+  reporter: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
   priority: {
     type: String,
     enum: ['Low', 'Medium', 'High'],
@@ -33,7 +55,7 @@ const TaskSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    required: true, // Status is now required and dynamic
+    default: 'Todo',
   },
   plannedDateStart: {
     type: Date,
@@ -41,6 +63,8 @@ const TaskSchema = new mongoose.Schema({
   plannedDateEnd: {
     type: Date,
   },
+  attachments: [AttachmentSchema],
+  comments: [CommentSchema],
   company: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Company',

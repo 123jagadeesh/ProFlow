@@ -6,22 +6,59 @@ exports.createEmployee = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ error: "Email already exists" });
+    // Input validation
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Check if email already exists
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email already exists' 
+      });
+    }
+
+    // Ensure company ID is available
+    const companyId = req.user.company?._id || req.user.company;
+    if (!companyId) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Company ID is missing' 
+      });
+    }
+
+    // Create new employee - let the User model handle password hashing
     const employee = new User({
       name,
       email,
-      password: hashedPassword,
+      password, // Let the pre-save hook hash this
       role: 'employee',
-      company: req.user.company._id, // Get from logged-in admin
+      company: companyId,
+      isActive: true // Ensure new employees are active by default
     });
 
     await employee.save();
-    res.status(201).json({ message: "Employee created successfully" });
+    
+    res.status(201).json({ 
+      success: true,
+      message: 'Employee created successfully',
+      employee: {
+        id: employee._id,
+        name: employee.name,
+        email: employee.email,
+        role: employee.role,
+        company: employee.company
+      }
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error creating employee:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while creating employee',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
